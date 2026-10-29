@@ -27,7 +27,7 @@ PROJECTS = Path.home() / ".claude" / "projects"
 HIDDEN = {".git", "node_modules", "__pycache__", ".venv", ".DS_Store", ".mypy_cache", ".pytest_cache"}
 STATUS_STYLE = {
     "working": ("◐ working", "bold yellow"),
-    "blocked": ("⚠ blocked — ждёт ответа", "bold red"),
+    "blocked": ("⚠ blocked — waiting for input", "bold red"),
     "idle": ("● idle", "bold green"),
     "done": ("✔ done", "bold green"),
     "unknown": ("? unknown", "dim"),
@@ -100,9 +100,9 @@ class Dashboard(App):
     #touched { height: auto; max-height: 10; border-top: solid $panel; padding: 0 1; }
     """
     BINDINGS = [
-        ("r", "reload_tree", "Обновить дерево"),
-        ("c", "clear_log", "Очистить лог"),
-        ("q", "quit", "Выход"),
+        ("r", "reload_tree", "Reload tree"),
+        ("c", "clear_log", "Clear log"),
+        ("q", "quit", "Quit"),
     ]
 
     def __init__(self, pane: str, window: int | None):
@@ -265,7 +265,7 @@ class Dashboard(App):
         t.append(f"   {self.model}", "dim")
         t.append(f"   tools: {self.tool_count}", "dim")
         if self.pending:
-            t.append(f"  (в процессе: {len(self.pending)})", "yellow")
+            t.append(f"  (in progress: {len(self.pending)})", "yellow")
         t.append("\n")
         t.append(self.title_text or "—", "bold")
         t.append(f"   {self.cwd}", "dim")
@@ -281,7 +281,7 @@ class Dashboard(App):
 
     def render_touched(self) -> None:
         self.query_one(TouchedTree).touched = set(self.touched)
-        t = Text("Изменённые файлы:", "bold")
+        t = Text("Edited files:", "bold")
         if not self.touched:
             t.append(" —", "dim")
         for p, n in sorted(self.touched.items(), key=lambda kv: -kv[1]):
@@ -302,11 +302,11 @@ class Dashboard(App):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--pane", default=os.environ.get("DASH_TARGET_PANE"), help="herdr pane id агента")
-    ap.add_argument("--window", type=int, help="размер контекстного окна в токенах")
+    ap.add_argument("--pane", default=os.environ.get("DASH_TARGET_PANE"), help="herdr pane id of the agent")
+    ap.add_argument("--window", type=int, help="context window size in tokens (default 1M)")
     args = ap.parse_args()
     if not args.pane:
-        ap.error("нужен --pane (или DASH_TARGET_PANE)")
+        ap.error("--pane (or DASH_TARGET_PANE) is required")
     Dashboard(args.pane, args.window).run()
 
 

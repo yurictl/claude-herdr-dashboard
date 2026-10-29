@@ -10,7 +10,7 @@ if [ "${1:-}" = "--hook" ]; then hook=1; shift; fi
 
 if [ "${HERDR_ENV:-}" != 1 ]; then
   [ "$hook" = 1 ] && exit 0
-  echo "не внутри herdr" >&2; exit 1
+  echo "not running inside herdr" >&2; exit 1
 fi
 
 target="${1:-$HERDR_PANE_ID}"
@@ -29,11 +29,11 @@ label="${main_label}-dash"
 
 if herdr tab list --workspace "$ws" | jq -e --arg l "$label" '.result.tabs[] | select(.label == $l)' >/dev/null; then
   [ "$hook" = 1 ] && exit 0
-  echo "таб '$label' уже открыт" >&2; exit 0
+  echo "tab '$label' is already open" >&2; exit 0
 fi
 
 pane="$(herdr tab create --workspace "$ws" --cwd "$cwd" --label "$label" --no-focus \
   --env "DASH_TARGET_PANE=$target" | jq -r '.result.root_pane.pane_id')"
 
 herdr pane run "$pane" "exec '$here/dash.py'" >/dev/null
-[ "$hook" = 1 ] || echo "dashboard для $target открыт в табе '$label' (pane $pane)"
+[ "$hook" = 1 ] || echo "dashboard for $target opened in tab '$label' (pane $pane)"
