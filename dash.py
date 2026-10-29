@@ -33,6 +33,8 @@ STATUS_STYLE = {
     "unknown": ("? unknown", "dim"),
 }
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+DEFAULT_WINDOW = 1_000_000
+GONE_POLLS = 5  # exit after this many polls without an agent in the pane
 
 
 def herdr_agent(pane: str) -> dict | None:
@@ -118,6 +120,7 @@ class Dashboard(App):
         self.title_text = ""
         self.cwd = Path.cwd()
         self.status = "unknown"
+        self.missing = 0
 
     def compose(self) -> ComposeResult:
         yield Static(id="header")
@@ -139,6 +142,7 @@ class Dashboard(App):
     def poll(self) -> None:
         agent = herdr_agent(self.pane)
         if agent:
+            self.missing = 0
             self.status = agent.get("agent_status", "unknown")
             sess = (agent.get("agent_session") or {}).get("value")
             cwd = agent.get("cwd")
@@ -150,6 +154,10 @@ class Dashboard(App):
             self.title_text = agent.get("terminal_title_stripped") or self.title_text
         else:
             self.status = "unknown"
+            self.missing += 1
+            if self.missing >= GONE_POLLS:
+                self.exit()
+                return
         if self.transcript is None and self.session_id:
             self.transcript = find_transcript(self.session_id)
         self.read_transcript()
@@ -248,7 +256,7 @@ class Dashboard(App):
     def context_window(self) -> int:
         if self.window_override:
             return self.window_override
-        return 1_000_000 if "1m" in self.model.lower() else 200_000
+        return DEFAULT_WINDOW
 
     def render_header(self) -> None:
         label, style = STATUS_STYLE.get(self.status, STATUS_STYLE["unknown"])

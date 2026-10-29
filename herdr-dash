@@ -1,18 +1,39 @@
 #!/usr/bin/env bash
-# Open the Claude dashboard for a herdr pane in a sibling tab.
-# Usage: herdr-dash [pane-id]   (default: the calling pane)
+# Open the Claude dashboard for a herdr pane in a sibling tab named "<agent tab>-dash".
+# Usage: herdr-dash [--hook] [pane-id]   (default: the calling pane)
+#   --hook  quiet mode for a Claude Code SessionStart hook: no stdout,
+#           no-op outside herdr or when the dash tab already exists.
 set -euo pipefail
 
-test "${HERDR_ENV:-}" = 1 || { echo "не внутри herdr" >&2; exit 1; }
+hook=0
+if [ "${1:-}" = "--hook" ]; then hook=1; shift; fi
+
+if [ "${HERDR_ENV:-}" != 1 ]; then
+  [ "$hook" = 1 ] && exit 0
+  echo "не внутри herdr" >&2; exit 1
+fi
 
 target="${1:-$HERDR_PANE_ID}"
 here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-ws="${HERDR_WORKSPACE_ID}"
-cwd="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.cwd // empty')"
+
+agent="$(herdr agent get "$target" 2>/dev/null || true)"
+ws="$(jq -r '.result.agent.workspace_id // empty' <<<"$agent")"
+tab="$(jq -r '.result.agent.tab_id // empty' <<<"$agent")"
+cwd="$(jq -r '.result.agent.cwd // empty' <<<"$agent")"
+ws="${ws:-$HERDR_WORKSPACE_ID}"
+tab="${tab:-$HERDR_TAB_ID}"
 cwd="${cwd:-$PWD}"
 
-pane="$(herdr tab create --workspace "$ws" --cwd "$cwd" --label "dash" --no-focus \
+main_label="$(herdr tab get "$tab" | jq -r '.result.tab.label')"
+label="${main_label}-dash"
+
+if herdr tab list --workspace "$ws" | jq -e --arg l "$label" '.result.tabs[] | select(.label == $l)' >/dev/null; then
+  [ "$hook" = 1 ] && exit 0
+  echo "таб '$label' уже открыт" >&2; exit 0
+fi
+
+pane="$(herdr tab create --workspace "$ws" --cwd "$cwd" --label "$label" --no-focus \
   --env "DASH_TARGET_PANE=$target" | jq -r '.result.root_pane.pane_id')"
 
 herdr pane run "$pane" "exec '$here/dash.py'" >/dev/null
-echo "dashboard для $target открыт в табе (pane $pane)"
+[ "$hook" = 1 ] || echo "dashboard для $target открыт в табе '$label' (pane $pane)"
