@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Open the Claude dashboard for a herdr pane in a sibling tab.
+# Usage: herdr-dash [pane-id]   (default: the calling pane)
+set -euo pipefail
+
+test "${HERDR_ENV:-}" = 1 || { echo "не внутри herdr" >&2; exit 1; }
+
+target="${1:-$HERDR_PANE_ID}"
+here="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+ws="${HERDR_WORKSPACE_ID}"
+cwd="$(herdr agent get "$target" 2>/dev/null | jq -r '.result.agent.cwd // empty')"
+cwd="${cwd:-$PWD}"
+
+pane="$(herdr tab create --workspace "$ws" --cwd "$cwd" --label "dash" --no-focus \
+  --env "DASH_TARGET_PANE=$target" | jq -r '.result.root_pane.pane_id')"
+
+herdr pane run "$pane" "exec '$here/dash.py'" >/dev/null
+echo "dashboard для $target открыт в табе (pane $pane)"
